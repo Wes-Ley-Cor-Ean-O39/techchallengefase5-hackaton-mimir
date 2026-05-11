@@ -44,7 +44,7 @@ class WorkerService:
             body = json.loads(message.get("Body", "{}"))
             artifact = self._use_case.execute(body)
             LOGGER.info(
-                "Relatorio gerado. upload_id=%s markdown=s3://%s/%s",
+                "Relatorio gerado com sucesso. uploadId=%s markdown=s3://%s/%s",
                 artifact.upload_id,
                 artifact.bucket,
                 artifact.markdown_key,

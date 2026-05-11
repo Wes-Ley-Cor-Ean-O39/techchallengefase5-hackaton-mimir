@@ -1,8 +1,11 @@
 import json
+import logging
 from typing import Any, Dict
 
 from mimir.application.ports import AnalysisRepositoryPort, ReportStoragePort
 from mimir.domain.entities import ReportArtifact, ReportRequest
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ReportMessageParser:
@@ -54,6 +57,12 @@ class GenerateReportUseCase:
 
     def execute(self, message_body: Dict[str, Any]) -> ReportArtifact:
         request = self._parser.parse(message_body)
+        LOGGER.info(
+            "Geracao de relatorio solicitada. uploadId=%s bucket=%s key=%s",
+            request.upload_id,
+            request.source_bucket,
+            request.source_key,
+        )
         markdown = self._build_markdown(request)
         payload = self._build_payload(request, markdown)
         return self._storage.save_report(request=request, markdown=markdown, payload=payload)
