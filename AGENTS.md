@@ -37,7 +37,7 @@ docker exec tc5-mimir-localstack awslocal s3 ls s3://techchallenge-fase5-reports
 - Jobs: build, deploy (main), open-pr
 - Deploy: build/push ECR + `helm upgrade --install` via `chart/mimir/values.yaml`
 - Gates de qualidade: testes unitários com cobertura mínima de `80%` + `helm lint` + SonarCloud condicional.
-- Runtime AWS no pod via role do node/EKS (`LabRole`); evitar credenciais `voclabs` em env vars do pod.
+- Runtime AWS no pod via Secret Kubernetes `mimir-aws` com credenciais temporarias do AWS Academy.
 
 ## Repositórios relacionados
 - `techchallengefase5-hackaton-gatekeeper` (entrada/presign)

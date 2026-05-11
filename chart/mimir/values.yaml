@@ -9,7 +9,7 @@ nameOverride: ""
 fullnameOverride: hackaton-mimir
 
 awsCredentials:
-  enabled: false
+  enabled: true
   secretName: mimir-aws
   accessKeyIdKey: access-key-id
   secretAccessKeyKey: secret-access-key

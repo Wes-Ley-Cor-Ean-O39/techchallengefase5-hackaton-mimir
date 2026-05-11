@@ -23,4 +23,4 @@ docker compose logs -f mimir
 
 ## Guardrails
 - Não processar arquivos brutos diretamente; usar resultado do Heimdail.
-- AWS runtime deve usar role do node/EKS (`LabRole`). Evitar credenciais `voclabs` em env vars do pod por causa de denies explicitos.
+- AWS runtime usa Secret Kubernetes `mimir-aws` com credenciais temporarias do AWS Academy; atualizar o Secret quando o lab rotacionar credenciais.

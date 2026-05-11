@@ -72,12 +72,19 @@ docker exec tc5-mimir-localstack awslocal s3 ls s3://techchallenge-fase5-reports
 ## 🚀 Deploy (EKS)
 Chart base: `chart/mimir`.
 
-As configurações não secretas ficam em `chart/mimir/values.yaml`. As credenciais AWS em runtime devem vir da role do node/EKS (`LabRole`), sem `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` ou `AWS_SESSION_TOKEN` no pod.
+As configurações não secretas ficam em `chart/mimir/values.yaml`. As credenciais AWS em runtime sao injetadas no pod via Secret Kubernetes `mimir-aws`, seguindo o mesmo padrao usado nos pods EKS da fase 4. Em AWS Academy, atualize `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SESSION_TOKEN` nos GitHub Secrets sempre que o lab rotacionar as credenciais.
 
 ```bash
 aws eks update-kubeconfig --name tc-fase5-hackaton-eks --region us-east-1
 
 IMAGE_TAG=<TAG>
+
+kubectl create secret generic mimir-aws \
+  --from-literal=access-key-id="$AWS_ACCESS_KEY_ID" \
+  --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+  --from-literal=session-token="$AWS_SESSION_TOKEN" \
+  -n default \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install hackaton-mimir chart/mimir \
   -n default \
