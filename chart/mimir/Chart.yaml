@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mimir
+description: Worker assincrono de geracao de relatorios da Fase 5 Hackaton
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

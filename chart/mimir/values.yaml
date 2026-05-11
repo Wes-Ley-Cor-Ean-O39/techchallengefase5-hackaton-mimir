@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  repository: 590184113966.dkr.ecr.us-east-1.amazonaws.com/techchallenge-fase5-reports
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: hackaton-mimir
+
+awsCredentials:
+  enabled: false
+  secretName: mimir-aws
+  accessKeyIdKey: access-key-id
+  secretAccessKeyKey: secret-access-key
+  sessionTokenKey: session-token
+
+env:
+  AWS_REGION: us-east-1
+  REPORT_REQUEST_QUEUE_URL: https://sqs.us-east-1.amazonaws.com/590184113966/requested-report
+  ANALYSIS_TABLE_NAME: analises-arquitetura
+  REPORTS_BUCKET_NAME: techchallenge-fase5-reports
+  REPORTS_PREFIX: reports
+  POLL_WAIT_SECONDS: "20"
+  MAX_MESSAGES: "5"

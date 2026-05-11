@@ -1,0 +1,7 @@
+.coverage
+.pytest_cache/
+__pycache__/
+*.py[cod]
+coverage.xml
+.DS_Store
+localstack-data/

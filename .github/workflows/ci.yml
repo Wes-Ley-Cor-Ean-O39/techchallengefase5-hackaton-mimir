@@ -1,0 +1,139 @@
+name: 📄 CI/CD - Mimir Worker
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    name: 🧪 Build · Validate
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Static sanity checks
+        run: |
+          python -m compileall -q src
+          PYTHONPATH=src python -c "import mimir.main"
+
+      - name: Run unit tests (coverage >= 80%)
+        run: |
+          PYTHONPATH=src pytest -q \
+            --cov=src/mimir \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint chart/mimir
+
+      - name: 🔎 SonarCloud Scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_ORGANIZATION != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.host.url=https://sonarcloud.io
+
+      - name: Docker build
+        run: docker build -t mimir-worker:${{ github.sha }} .
+
+  deploy:
+    name: 🚀 Deploy to EKS (main)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      AWS_REGION: us-east-1
+      EKS_CLUSTER: tc-fase5-hackaton-eks
+      EKS_NAMESPACE: default
+      HELM_RELEASE: hackaton-mimir
+      HELM_CHART: chart/mimir
+      HELM_VALUES: chart/mimir/values.yaml
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        run: |
+          image_repository=$(awk -F': ' '/repository:/ {print $2; exit}' "$HELM_VALUES" | tr -d '"')
+          repository_name=${image_repository##*/}
+          aws ecr describe-repositories --repository-names "$repository_name" >/dev/null 2>&1 \
+            || aws ecr create-repository --repository-name "$repository_name" >/dev/null
+          docker build -t "$image_repository:${{ github.sha }}" .
+          docker push "$image_repository:${{ github.sha }}"
+
+      - name: Configure kubeconfig
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy worker
+        run: |
+          kubectl create namespace "$EKS_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
+            -n "$EKS_NAMESPACE" \
+            -f "$HELM_VALUES" \
+            --set image.tag=${{ github.sha }}
+          kubectl rollout status deployment/hackaton-mimir -n "$EKS_NAMESPACE" --timeout=180s
+
+  open-pr:
+    name: 📬 Abrir PR automático
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar PR para main
+        env:
+          GH_TOKEN: ${{ secrets.GH_PR_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          branch=${GITHUB_REF_NAME}
+          base=main
+          set +e
+          exists=$(gh pr list --head "$branch" --base "$base" --state open --json number --jq '.[0].number')
+          if [ -n "$exists" ]; then
+            echo "PR ja existe: #$exists"
+            exit 0
+          fi
+          gh pr create --head "$branch" --base "$base" \
+            --title "Auto PR: $branch -> $base" \
+            --body "PR aberto automaticamente pelo CI apos push em $branch." || true

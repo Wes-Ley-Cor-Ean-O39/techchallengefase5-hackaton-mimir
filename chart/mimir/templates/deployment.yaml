@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mimir.fullname" . }}
+  labels:
+    app: {{ include "mimir.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "mimir.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "mimir.fullname" . }}
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+            {{- if .Values.awsCredentials.enabled }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsCredentials.secretName | quote }}
+                  key: {{ .Values.awsCredentials.accessKeyIdKey | quote }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsCredentials.secretName | quote }}
+                  key: {{ .Values.awsCredentials.secretAccessKeyKey | quote }}
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsCredentials.secretName | quote }}
+                  key: {{ .Values.awsCredentials.sessionTokenKey | quote }}
+            {{- end }}
+            - name: REPORT_REQUEST_QUEUE_URL
+              value: {{ .Values.env.REPORT_REQUEST_QUEUE_URL | quote }}
+            - name: ANALYSIS_TABLE_NAME
+              value: {{ .Values.env.ANALYSIS_TABLE_NAME | quote }}
+            - name: REPORTS_BUCKET_NAME
+              value: {{ .Values.env.REPORTS_BUCKET_NAME | quote }}
+            - name: REPORTS_PREFIX
+              value: {{ .Values.env.REPORTS_PREFIX | quote }}
+            - name: POLL_WAIT_SECONDS
+              value: {{ .Values.env.POLL_WAIT_SECONDS | quote }}
+            - name: MAX_MESSAGES
+              value: {{ .Values.env.MAX_MESSAGES | quote }}
